@@ -168,6 +168,8 @@ state_connection_close(#state{connection={some, ConnOpt}}=State, Reason) ->
     _ = thrift_client:close(ConnOpt),
     State#state{connection=none};
 state_connection_close(#state{connection=none}=State, _Reason) ->
+    MetricReason = <<?WORKER_DISCONNECTED_METRIC/binary, "none">>,
+    quintana:notify_spiral({MetricReason, 1}),
     State.
 
 
@@ -283,18 +285,18 @@ do_request(#restRequest{body=Body}=RestRequest, Connection1) ->
             <<_/binary>>            -> Body;
             Body when is_list(Body) -> jsx:encode(Body, [repeat_keys])
         end,
-    Function = execute,
     Arguments = [RestRequest#restRequest{body=BodyBin}],
-    try thrift_client:call(Connection1, Function, Arguments) of
+    try thrift_client:call(Connection1, execute, Arguments) of
         {Connection2, {ok, RestResponse}} ->
             {{ok, RestResponse}, Connection2};
         {Connection2, {error, Reason}} ->
             {{error, {call_error, Reason}}, Connection2}
     catch
         throw:{Connection2, {exception, ExceptionDetails}} ->
+            lager:error("Thrift call failed with java exception: ~p:~p", [Arguments, ExceptionDetails]),
             {{error, {call_exception, {java, ExceptionDetails}}}, Connection2};
         error:badarg ->
-            % TODO: What does badarg mean here? Why are we catching it?
+            lager:error("Thrift call failed with badarg: ~p", [Arguments]),
             {{error, {call_exception, {erlang, badarg}}}, Connection1};
         error:{case_clause, {error, closed}} ->
             {{error, {connection_error, closed}}, Connection1};
@@ -311,7 +313,6 @@ process_response(false, #restResponse{status = Status, body = undefined}) ->
 process_response(true, #restResponse{status = Status, body = Body}) ->
     [{status, erlang:integer_to_binary(Status)}, {body, Body}];
 process_response(false, #restResponse{status = Status, body = Body}) ->
-    % TODO: What does this try/catch block mean?
     try
         [{status, Status}, {body, jsx:decode(Body)}]
     catch
