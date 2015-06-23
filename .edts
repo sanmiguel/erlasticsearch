@@ -1,0 +1,3 @@
+:name "erlasticsearch"
+:lib-dirs '("deps")
+:start-command "make console"

@@ -319,6 +319,7 @@ process_response(false, #restResponse{status = Status, body = Body}) ->
         [{status, Status}, {body, jsx:decode(Body)}]
     catch
         error:badarg ->
+            lager:error("Failed to decode ~p", [Body]),
             [{status, Status}, {body, Body}]
     end.
 
