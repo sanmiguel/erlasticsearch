@@ -313,7 +313,7 @@ process_response(true, #restResponse{status = Status, body = Body}) ->
 process_response(false, #restResponse{status = Status, body = Body}) ->
     % TODO: What does this try/catch block mean?
     try
-        [{status, Status}, {body, jsx:decode(Body)}]
+        [{status, Status}, {body, jsx:decode(Body, [repeat_keys])}]
     catch
         error:badarg ->
             lager:error("Failed to decode ~p", [Body]),
