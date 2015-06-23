@@ -314,7 +314,7 @@ process_response(true, #restResponse{status = Status, body = Body}) ->
     [{status, erlang:integer_to_binary(Status)}, {body, Body}];
 process_response(false, #restResponse{status = Status, body = Body}) ->
     try
-        [{status, Status}, {body, jsx:decode(Body)}]
+        [{status, Status}, {body, jsx:decode(Body, [repeat_keys])}]
     catch
         error:badarg ->
             lager:error("Failed to decode ~p", [Body]),
